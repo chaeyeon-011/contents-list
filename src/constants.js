@@ -73,8 +73,6 @@ export const PRIORITY_LABELS = {
 }
 
 export const STORAGE_KEYS = {
-  API_KEY: 'ai_tool_api_key',
-  SERPER_KEY: 'ai_tool_serper_key',
   CONTENTS: 'ai_tool_contents',
   COLLECTED_URLS: 'ai_tool_collected_urls',
   VIEW_MODE: 'ai_tool_view_mode',

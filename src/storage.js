@@ -1,22 +1,6 @@
 import { STORAGE_KEYS } from './constants'
 import { getWeekId } from './utils/week'
 
-export function getApiKey() {
-  return localStorage.getItem(STORAGE_KEYS.API_KEY) || ''
-}
-
-export function saveApiKey(key) {
-  localStorage.setItem(STORAGE_KEYS.API_KEY, key)
-}
-
-export function getSerperKey() {
-  return localStorage.getItem(STORAGE_KEYS.SERPER_KEY) || ''
-}
-
-export function saveSerperKey(key) {
-  localStorage.setItem(STORAGE_KEYS.SERPER_KEY, key)
-}
-
 export function getContents() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CONTENTS)

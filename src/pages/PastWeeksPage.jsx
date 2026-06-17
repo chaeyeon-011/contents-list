@@ -8,7 +8,7 @@ import { searchContents, judgeUrl } from '../claudeApi'
 import ContentCard from '../components/ContentCard'
 
 export default function PastWeeksPage({
-  groqKey, serperKey, contents, setContents,
+  contents, setContents,
   onUpdateJudgment, onUpdateUploaded, onDelete,
 }) {
   const currentWeekId = getWeekId()
@@ -41,11 +41,10 @@ export default function PastWeeksPage({
   }
 
   async function handleSearch() {
-    if (!groqKey || !serperKey) { setError('Groq와 Serper API Key를 모두 입력해주세요.'); return }
     setError(''); setInfo(''); setLoading(true)
     try {
       const collectedUrls = await dbGetCollectedUrls()
-      const items = await searchContents(groqKey, serperKey, activeTab, collectedUrls)
+      const items = await searchContents(activeTab, collectedUrls)
       if (items.length === 0) { setInfo('이미 수집한 소재와 중복되어 새로운 결과가 없습니다.'); return }
       const withWeek = items.map(item => ({ ...item, weekId: selectedWeek }))
       for (const item of withWeek) { await dbAddContent(item); addContent(item) }
@@ -59,12 +58,12 @@ export default function PastWeeksPage({
   }
 
   async function handleAddUrl() {
-    if (!manualUrl.trim() || !groqKey) return
+    if (!manualUrl.trim()) return
     const collectedUrls = await dbGetCollectedUrls()
     if (collectedUrls.includes(manualUrl.trim())) { setError('이미 수집된 URL입니다.'); return }
     setError(''); setInfo(''); setAddingUrl(true)
     try {
-      const item = await judgeUrl(groqKey, manualUrl.trim(), activeTab)
+      const item = await judgeUrl(manualUrl.trim(), activeTab)
       const withWeek = { ...item, weekId: selectedWeek }
       await dbAddContent(withWeek); addContent(withWeek)
       setContents(prev => [withWeek, ...prev])

@@ -1,17 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { getApiKey, getSerperKey } from './storage'
 import { getWeekId } from './utils/week'
 import { dbFetchContents, dbUpdateContent, dbDeleteContent, dbMigrateFromLocalStorage } from './lib/db'
 import { updateContent, deleteContent } from './storage'
-import ApiKeyInput from './components/ApiKeyInput'
 import ListingPage from './pages/ListingPage'
 import PastWeeksPage from './pages/PastWeeksPage'
 import DashboardPage from './pages/DashboardPage'
 
 export default function App() {
   const currentWeekId = getWeekId()
-  const [groqKey, setGroqKey] = useState(getApiKey)
-  const [serperKey, setSerperKey] = useState(getSerperKey)
   const [contents, setContents] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState('listing')
@@ -48,7 +44,7 @@ export default function App() {
     setContents(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
     try {
       await dbUpdateContent(id, updates)
-      updateContent(id, updates) // localStorage sync
+      updateContent(id, updates)
     } catch (e) { console.error(e) }
   }
 
@@ -114,14 +110,6 @@ export default function App() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-4">
-        <ApiKeyInput
-          groqKey={groqKey}
-          serperKey={serperKey}
-          onSaveGroq={setGroqKey}
-          onSaveSerper={setSerperKey}
-          onSaveSupabase={loadContents}
-        />
-
         {loading ? (
           <div className="flex items-center justify-center py-20 text-gray-400">
             <span className="animate-spin w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full mr-3" />
@@ -131,8 +119,6 @@ export default function App() {
           <>
             {page === 'listing' && (
               <ListingPage
-                groqKey={groqKey}
-                serperKey={serperKey}
                 selectedWeek={currentWeekId}
                 contents={contents}
                 setContents={setContents}
@@ -143,8 +129,6 @@ export default function App() {
             )}
             {page === 'past' && (
               <PastWeeksPage
-                groqKey={groqKey}
-                serperKey={serperKey}
                 contents={contents}
                 setContents={setContents}
                 onUpdateJudgment={handleUpdateJudgment}
