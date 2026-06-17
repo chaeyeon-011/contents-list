@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "PowerShell(Start-Sleep -Seconds 5; try { $resp = Invoke-WebRequest -Uri \"http://localhost:3000\" -TimeoutSec 3 -UseBasicParsing; \"Status: $\\($resp.StatusCode\\)\" } catch { \"Not ready: $_\" })",
+      "PowerShell(Receive-Job *)",
+      "PowerShell(Start-Process \"http://localhost:3000\")",
+      "PowerShell(Get-Process *)",
+      "PowerShell(netstat *)",
+      "PowerShell(Start-Process \"cmd.exe\" -ArgumentList \"/k\", \"cd /d `\"C:\\\\Users\\\\user\\\\Desktop\\\\contents list`\" && npm run dev\" -WindowStyle Normal)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(npm *)"
+    ]
+  }
+}
