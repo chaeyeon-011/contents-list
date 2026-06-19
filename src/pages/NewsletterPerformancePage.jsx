@@ -3,6 +3,7 @@ import {
   dbFetchNewsletterPerformance,
   dbInsertNewsletterPerformance,
   dbUpdatePerformanceStats,
+  dbDeleteNewsletterPerformance,
 } from '../lib/dbNewsletter'
 
 function fmtDate(dateStr) {
@@ -160,6 +161,7 @@ export default function NewsletterPerformancePage() {
   const [editingRow, setEditingRow] = useState(null)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [savingRow, setSavingRow] = useState(null)
+  const [deletingRow, setDeletingRow] = useState(null)
   const [activeChart, setActiveChart] = useState('email')
 
   useEffect(() => { loadData() }, [])
@@ -223,6 +225,20 @@ export default function NewsletterPerformancePage() {
       kakaoView: record.kakao_view ?? '',
       kakaoNote: record.kakao_note ?? '',
     })
+  }
+
+  async function handleDelete(issueNo) {
+    if (!window.confirm(`#${issueNo} 회차를 삭제하시겠습니까?`)) return
+    setDeletingRow(issueNo)
+    try {
+      await dbDeleteNewsletterPerformance(issueNo)
+      setRecords(prev => prev.filter(r => r.issue_no !== issueNo))
+      if (editingRow === issueNo) setEditingRow(null)
+    } catch (e) {
+      alert('삭제 실패: ' + e.message)
+    } finally {
+      setDeletingRow(null)
+    }
   }
 
   async function handleEditSave(issueNo) {
@@ -499,16 +515,26 @@ export default function NewsletterPerformancePage() {
                         <td className="px-3 py-3 text-right font-medium text-indigo-500">{fmtRate(r.email_click_rate)}</td>
                         <td className="px-3 py-3 text-right text-yellow-700">{fmtNum(r.kakao_sent)}</td>
                         <td className="px-3 py-3 text-right text-orange-600">{fmtNum(r.kakao_view)}</td>
-                        <td className="px-3 py-3 text-right">
+                        <td className="px-3 py-3 text-right whitespace-nowrap">
                           {editingRow === r.issue_no ? (
                             <span className="text-xs text-blue-400">편집 중</span>
                           ) : (
-                            <button
-                              onClick={() => startEdit(r)}
-                              className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
-                            >
-                              수정
-                            </button>
+                            <span className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => startEdit(r)}
+                                className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                              >
+                                수정
+                              </button>
+                              <span className="text-gray-200">|</span>
+                              <button
+                                onClick={() => handleDelete(r.issue_no)}
+                                disabled={deletingRow === r.issue_no}
+                                className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                              >
+                                {deletingRow === r.issue_no ? '삭제 중…' : '삭제'}
+                              </button>
+                            </span>
                           )}
                         </td>
                       </tr>

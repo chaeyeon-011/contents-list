@@ -41,6 +41,18 @@ export async function dbUpdatePerformanceStats(issueNo, data) {
   if (error) throw new Error(`성과 수정 실패: ${error.message}`)
 }
 
+export async function dbDeleteNewsletterPerformance(issueNo) {
+  const sb = getSupabase()
+  if (!sb) throw new Error('Supabase가 연결되어 있지 않습니다')
+
+  const { error } = await sb
+    .from('newsletter_performance')
+    .delete()
+    .eq('issue_no', issueNo)
+
+  if (error) throw new Error(`회차 삭제 실패: ${error.message}`)
+}
+
 // 스티비 프로 요금제 업그레이드 시 사용 가능
 export async function dbSyncEmailStats(records) {
   const sb = getSupabase()
