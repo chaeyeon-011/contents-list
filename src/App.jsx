@@ -7,13 +7,26 @@ import PastWeeksPage from './pages/PastWeeksPage'
 import DashboardPage from './pages/DashboardPage'
 import NewsletterPerformancePage from './pages/NewsletterPerformancePage'
 
+const VALID_PAGES = ['listing', 'past', 'dashboard', 'performance']
+
+function getPageFromHash() {
+  const hash = window.location.hash.slice(1)
+  return VALID_PAGES.includes(hash) ? hash : 'listing'
+}
+
 export default function App() {
   const currentWeekId = getWeekId()
   const [contents, setContents] = useState([])
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState('listing')
+  const [page, setPage] = useState(getPageFromHash)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
+
+  useEffect(() => {
+    function onHashChange() { setPage(getPageFromHash()) }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   async function loadContents() {
     setLoading(true)
@@ -38,7 +51,11 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [menuOpen])
 
-  function navigate(target) { setPage(target); setMenuOpen(false) }
+  function navigate(target) {
+    window.location.hash = target
+    setPage(target)
+    setMenuOpen(false)
+  }
 
   async function handleUpdateJudgment(id, judgment) {
     const updates = { userJudgment: judgment, ...(judgment === 'NG' ? { uploaded: false } : {}) }
