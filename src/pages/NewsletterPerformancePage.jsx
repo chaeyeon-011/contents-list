@@ -114,14 +114,14 @@ function LineChart({ data, series, yUnit = '' }) {
 
 function FormFields({ form, onChange }) {
   const field = (key, label, opts = {}) => (
-    <div>
+    <div className="flex-1 min-w-[90px]">
       <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
       <input
         type={opts.type ?? 'number'}
         step={opts.step}
         value={form[key]}
         onChange={e => onChange(key, e.target.value)}
-        className={`border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm ${opts.wide ? 'w-full' : opts.date ? 'w-36' : 'w-28'}`}
+        className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
         placeholder={opts.placeholder ?? ''}
       />
     </div>
@@ -129,8 +129,8 @@ function FormFields({ form, onChange }) {
 
   return (
     <div className="space-y-3">
-      <div>
-        {field('issueDate', '발행일 *', { type: 'date', date: true })}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        {field('issueDate', '발행일 *', { type: 'date' })}
       </div>
       <div>
         <p className="text-xs font-medium text-blue-600 mb-2">이메일</p>
@@ -147,7 +147,16 @@ function FormFields({ form, onChange }) {
           {field('kakaoView', '조회수', { placeholder: '0' })}
         </div>
       </div>
-      {field('kakaoNote', '비고 (선택)', { type: 'text', wide: true, placeholder: '메모를 입력하세요' })}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1.5">비고 (선택)</label>
+        <input
+          type="text"
+          value={form.kakaoNote}
+          onChange={e => onChange('kakaoNote', e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
+          placeholder="메모를 입력하세요"
+        />
+      </div>
     </div>
   )
 }
@@ -207,7 +216,6 @@ export default function NewsletterPerformancePage() {
         kakao_view: numOrNull(addForm.kakaoView),
         kakao_note: addForm.kakaoNote || null,
       })
-      // 추가 후 발행일 내림차순으로 sort_order 재정렬
       const fresh = await dbFetchNewsletterPerformance()
       const byDate = [...fresh].sort((a, b) => {
         if (!a.issue_date) return 1
@@ -345,16 +353,18 @@ export default function NewsletterPerformancePage() {
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-gray-900">뉴스레터 성과분석</h2>
-          <p className="text-sm text-gray-500 mt-0.5">이메일 + 카카오톡 채널 메시지 발행 성과</p>
+          <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">이메일 + 카카오톡 채널 메시지 발행 성과</p>
         </div>
         <button
           onClick={() => { setShowAddForm(v => !v); setEditingRow(null) }}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap flex-shrink-0"
         >
-          <span className="text-base leading-none">+</span> 성과 추가하기
+          <span className="text-base leading-none">+</span>
+          <span className="hidden sm:inline">성과 추가하기</span>
+          <span className="sm:hidden">추가</span>
         </button>
       </div>
 
@@ -440,24 +450,24 @@ export default function NewsletterPerformancePage() {
 
           {/* Trend charts */}
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700">회차별 추이</h3>
-              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+            <div className="flex items-center justify-between mb-4 gap-2">
+              <h3 className="text-sm font-semibold text-gray-700 flex-shrink-0">회차별 추이</h3>
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs overflow-x-auto flex-shrink-0">
                 <button
                   onClick={() => setActiveChart('all')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'all' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${activeChart === 'all' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
                   전체보기
                 </button>
                 <button
                   onClick={() => setActiveChart('email')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${activeChart === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
                   이메일
                 </button>
                 <button
                   onClick={() => setActiveChart('kakao')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'kakao' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${activeChart === 'kakao' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
                   카카오톡
                 </button>
@@ -541,7 +551,78 @@ export default function NewsletterPerformancePage() {
             <div className="px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700">회차별 상세</h3>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Mobile card list */}
+            <div className="block sm:hidden divide-y divide-gray-100">
+              {records.map(r => (
+                <div key={r.issue_no} className={`p-4 ${editingRow === r.issue_no ? 'bg-blue-50' : ''}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="font-bold text-gray-800">#{r.issue_no}</span>
+                      <span className="text-xs text-gray-400 ml-2">{fmtDate(r.issue_date)}</span>
+                    </div>
+                    {editingRow !== r.issue_no && (
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => startEdit(r)}
+                          className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDelete(r.issue_no)}
+                          disabled={deletingRow === r.issue_no}
+                          className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                        >
+                          {deletingRow === r.issue_no ? '삭제 중…' : '삭제'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-blue-50 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-0.5">이메일 발송수</p>
+                      <p className="font-semibold text-gray-800">{fmtNum(r.email_sent)}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-0.5">오픈율</p>
+                      <p className="font-semibold text-blue-600">{fmtRate(r.email_open_rate)}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-0.5">클릭률</p>
+                      <p className="font-semibold text-indigo-500">{fmtRate(r.email_click_rate)}</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-0.5">카카오 조회수</p>
+                      <p className="font-semibold text-yellow-600">{fmtNum(r.kakao_view)}</p>
+                    </div>
+                  </div>
+                  {editingRow === r.issue_no && (
+                    <div className="mt-4 pt-4 border-t border-blue-100">
+                      <FormFields form={editForm} onChange={updateEditForm} />
+                      <div className="flex justify-end gap-2 mt-4">
+                        <button
+                          onClick={() => setEditingRow(null)}
+                          className="px-3 py-1.5 text-sm bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          취소
+                        </button>
+                        <button
+                          onClick={() => handleEditSave(r.issue_no)}
+                          disabled={savingRow === r.issue_no}
+                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {savingRow === r.issue_no ? '저장 중…' : '저장'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium text-gray-500">

@@ -87,28 +87,30 @@ export default function ListingPage({
         </div>
       </div>
 
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
-        {CATEGORIES.map(cat => {
-          const catOk = contents.filter(c => c.category === cat.id && c.weekId === selectedWeek && c.userJudgment === 'OK').length
-          return (
-            <button key={cat.id} onClick={() => { setActiveTab(cat.id); setError(''); setInfo('') }}
-              className={`flex-1 text-sm py-2 px-2 rounded-md transition-colors ${activeTab === cat.id ? 'bg-white shadow text-blue-600 font-semibold' : 'text-gray-600 hover:text-gray-900'}`}>
-              <span className="block text-xs">{cat.name}</span>
-              <span className="text-xs opacity-60">{catOk}/{cat.dailyQuota}</span>
-            </button>
-          )
-        })}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-4">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 min-w-max sm:min-w-0">
+          {CATEGORIES.map(cat => {
+            const catOk = contents.filter(c => c.category === cat.id && c.weekId === selectedWeek && c.userJudgment === 'OK').length
+            return (
+              <button key={cat.id} onClick={() => { setActiveTab(cat.id); setError(''); setInfo('') }}
+                className={`flex-1 min-w-[70px] text-sm py-2 px-2 rounded-md transition-colors ${activeTab === cat.id ? 'bg-white shadow text-blue-600 font-semibold' : 'text-gray-600 hover:text-gray-900'}`}>
+                <span className="block text-xs">{cat.name}</span>
+                <span className="text-xs opacity-60">{catOk}/{cat.dailyQuota}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex gap-4 text-sm">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
             <span className="text-gray-500">수집: <strong>{filtered.length}</strong></span>
             <span className="text-green-600">OK: <strong>{okCount}</strong>/{quota}</span>
             <span className="text-blue-600">업로드: <strong>{uploadedCount}</strong></span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className={`text-xs px-2 py-1 rounded-full ${okCount >= quota ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${okCount >= quota ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
               {okCount >= quota ? '목표 달성' : `${quota - okCount}개 남음`}
             </div>
             <div className="flex gap-0.5 bg-gray-100 rounded p-0.5">
