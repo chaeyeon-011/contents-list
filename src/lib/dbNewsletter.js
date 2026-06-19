@@ -7,7 +7,7 @@ export async function dbFetchNewsletterPerformance() {
   const { data, error } = await sb
     .from('newsletter_performance')
     .select('*')
-    .order('issue_no', { ascending: false })
+    .order('sort_order', { ascending: true })
 
   if (error) throw new Error(`성과 데이터 불러오기 실패: ${error.message}`)
   return data ?? []
@@ -39,6 +39,17 @@ export async function dbUpdatePerformanceStats(issueNo, data) {
     .eq('issue_no', issueNo)
 
   if (error) throw new Error(`성과 수정 실패: ${error.message}`)
+}
+
+export async function dbUpdateSortOrders(updates) {
+  const sb = getSupabase()
+  if (!sb) throw new Error('Supabase가 연결되어 있지 않습니다')
+
+  await Promise.all(
+    updates.map(({ id, sort_order }) =>
+      sb.from('newsletter_performance').update({ sort_order }).eq('id', id)
+    )
+  )
 }
 
 export async function dbDeleteNewsletterPerformance(issueNo) {

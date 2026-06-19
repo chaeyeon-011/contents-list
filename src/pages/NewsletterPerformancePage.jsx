@@ -3,6 +3,7 @@ import {
   dbFetchNewsletterPerformance,
   dbInsertNewsletterPerformance,
   dbUpdatePerformanceStats,
+  dbUpdateSortOrders,
   dbDeleteNewsletterPerformance,
 } from '../lib/dbNewsletter'
 
@@ -162,6 +163,8 @@ export default function NewsletterPerformancePage() {
   const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [savingRow, setSavingRow] = useState(null)
   const [deletingRow, setDeletingRow] = useState(null)
+  const [dragIndex, setDragIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
   const [activeChart, setActiveChart] = useState('all')
 
   useEffect(() => { loadData() }, [])
@@ -192,9 +195,11 @@ export default function NewsletterPerformancePage() {
     setAddingRecord(true)
     try {
       const maxNo = records.length ? Math.max(...records.map(r => r.issue_no)) : 0
+      const minSort = records.length ? Math.min(...records.map(r => r.sort_order ?? 0)) : 0
       await dbInsertNewsletterPerformance({
         issue_no: maxNo + 1,
         issue_date: addForm.issueDate,
+        sort_order: minSort - 1,
         email_sent: numOrNull(addForm.emailSent),
         email_open_rate: numOrNull(addForm.emailOpenRate),
         email_click_rate: numOrNull(addForm.emailClickRate),
@@ -225,6 +230,44 @@ export default function NewsletterPerformancePage() {
       kakaoView: record.kakao_view ?? '',
       kakaoNote: record.kakao_note ?? '',
     })
+  }
+
+  function handleDragStart(e, index) {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  function handleDrop(e, index) {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === index) {
+      handleDragEnd()
+      return
+    }
+    const reordered = [...records]
+    const [moved] = reordered.splice(dragIndex, 1)
+    reordered.splice(index, 0, moved)
+    setRecords(reordered)
+    handleDragEnd()
+    saveReorder(reordered)
+  }
+
+  async function saveReorder(reordered) {
+    try {
+      await dbUpdateSortOrders(reordered.map((r, i) => ({ id: r.id, sort_order: i })))
+    } catch {
+      const fresh = await dbFetchNewsletterPerformance()
+      setRecords(fresh)
+    }
   }
 
   async function handleDelete(issueNo) {
@@ -494,6 +537,7 @@ export default function NewsletterPerformancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium text-gray-500">
+                    <th className="w-7 px-2 py-2.5"></th>
                     <th className="text-left px-4 py-2.5 whitespace-nowrap">회차</th>
                     <th className="text-left px-3 py-2.5 whitespace-nowrap">발행일</th>
                     <th className="text-right px-3 py-2.5 whitespace-nowrap text-blue-500">발송수</th>
@@ -505,9 +549,27 @@ export default function NewsletterPerformancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map(r => (
+                  {records.map((r, index) => (
                     <Fragment key={r.issue_no}>
-                      <tr className={`border-b border-gray-50 transition-colors ${editingRow === r.issue_no ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                      <tr
+                        draggable
+                        onDragStart={e => handleDragStart(e, index)}
+                        onDragOver={e => handleDragOver(e, index)}
+                        onDrop={e => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`border-b transition-colors select-none
+                          ${dragIndex === index ? 'opacity-40 bg-gray-50' : ''}
+                          ${dragOverIndex === index && dragIndex !== index ? 'border-t-2 border-t-blue-400' : 'border-gray-50'}
+                          ${editingRow === r.issue_no && dragIndex !== index ? 'bg-blue-50' : dragIndex !== index ? 'hover:bg-gray-50' : ''}
+                        `}
+                      >
+                        <td className="px-2 py-3 cursor-grab active:cursor-grabbing">
+                          <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" className="text-gray-300 hover:text-gray-500 mx-auto transition-colors">
+                            <circle cx="3" cy="2.5" r="1.5" /><circle cx="9" cy="2.5" r="1.5" />
+                            <circle cx="3" cy="8" r="1.5" /><circle cx="9" cy="8" r="1.5" />
+                            <circle cx="3" cy="13.5" r="1.5" /><circle cx="9" cy="13.5" r="1.5" />
+                          </svg>
+                        </td>
                         <td className="px-4 py-3 font-semibold text-gray-800">#{r.issue_no}</td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap text-xs">{fmtDate(r.issue_date)}</td>
                         <td className="px-3 py-3 text-right text-gray-700">{fmtNum(r.email_sent)}</td>
@@ -542,7 +604,7 @@ export default function NewsletterPerformancePage() {
                       {/* Inline edit row */}
                       {editingRow === r.issue_no && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-4 bg-blue-50 border-b border-blue-100">
+                          <td colSpan={9} className="px-4 py-4 bg-blue-50 border-b border-blue-100">
                             <FormFields form={editForm} onChange={updateEditForm} />
                             <div className="flex justify-end gap-2 mt-4">
                               <button
