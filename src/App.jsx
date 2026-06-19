@@ -5,6 +5,7 @@ import { updateContent, deleteContent } from './storage'
 import ListingPage from './pages/ListingPage'
 import PastWeeksPage from './pages/PastWeeksPage'
 import DashboardPage from './pages/DashboardPage'
+import NewsletterPerformancePage from './pages/NewsletterPerformancePage'
 
 export default function App() {
   const currentWeekId = getWeekId()
@@ -64,7 +65,7 @@ export default function App() {
     } catch (e) { console.error(e) }
   }
 
-  const PAGE_LABELS = { listing: '리스트업', past: '이전 주차', dashboard: '대시보드' }
+  const PAGE_LABELS = { listing: '리스트업', past: '이전 주차', dashboard: '대시보드', performance: '성과분석' }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,6 +102,10 @@ export default function App() {
                   </button>
                   <button onClick={() => navigate('past')} className={`w-full text-left pl-9 pr-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${page === 'past' ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
                     <span>└</span><span>이전 주차</span>
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button onClick={() => navigate('performance')} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${page === 'performance' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
+                    <span>📈</span> 성과분석
                   </button>
                 </div>
               )}
@@ -144,6 +149,9 @@ export default function App() {
                 onUpdateUploaded={handleUpdateUploaded}
                 onDelete={handleDelete}
               />
+            )}
+            {page === 'performance' && (
+              <NewsletterPerformancePage />
             )}
           </>
         )}

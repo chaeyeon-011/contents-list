@@ -9,7 +9,12 @@
       "PowerShell(netstat *)",
       "PowerShell(Start-Process \"cmd.exe\" -ArgumentList \"/k\", \"cd /d `\"C:\\\\Users\\\\user\\\\Desktop\\\\contents list`\" && npm run dev\" -WindowStyle Normal)",
       "PowerShell(Stop-Process *)",
-      "PowerShell(npm *)"
+      "PowerShell(npm *)",
+      "PowerShell(vercel *)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
