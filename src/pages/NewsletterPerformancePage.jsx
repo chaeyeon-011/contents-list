@@ -1,14 +1,9 @@
 import { Fragment, useState, useEffect } from 'react'
-import { dbFetchNewsletterPerformance, dbSyncEmailStats, dbUpdateKakaoStats } from '../lib/dbNewsletter'
-
-// Returns Monday date string (YYYY-MM-DD) for the week containing dateStr
-function weekStart(dateStr) {
-  const d = new Date(dateStr)
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  return d.toISOString().split('T')[0]
-}
+import {
+  dbFetchNewsletterPerformance,
+  dbInsertNewsletterPerformance,
+  dbUpdatePerformanceStats,
+} from '../lib/dbNewsletter'
 
 function fmtDate(dateStr) {
   if (!dateStr) return '—'
@@ -38,7 +33,22 @@ function avgOf(arr, key) {
   return vals.reduce((a, b) => a + b, 0) / vals.length
 }
 
-// Simple SVG line chart — no external dependencies
+function numOrNull(v) {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(v)
+  return isNaN(n) ? null : n
+}
+
+const EMPTY_FORM = {
+  issueDate: '',
+  emailSent: '',
+  emailOpenRate: '',
+  emailClickRate: '',
+  kakaoSent: '',
+  kakaoView: '',
+  kakaoNote: '',
+}
+
 function LineChart({ data, series, yUnit = '' }) {
   const W = 560, H = 190
   const pad = { top: 16, right: 20, bottom: 36, left: 48 }
@@ -55,7 +65,6 @@ function LineChart({ data, series, yUnit = '' }) {
 
   const allVals = series.flatMap(s => data.map(d => Number(d[s.key] ?? 0))).filter(v => !isNaN(v))
   const rawMax = Math.max(...allVals, 0.01)
-  // Round up to a nice number for y-axis
   const yMax = yUnit === '%'
     ? Math.ceil((rawMax * 1.25) / 10) * 10 || 100
     : Math.ceil((rawMax * 1.25) / 100) * 100 || 1000
@@ -66,7 +75,6 @@ function LineChart({ data, series, yUnit = '' }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }}>
-      {/* Horizontal grid lines + Y labels */}
       {Array.from({ length: gridCount + 1 }, (_, k) => {
         const t = k / gridCount
         const yp = pad.top + plotH * (1 - t)
@@ -79,36 +87,20 @@ function LineChart({ data, series, yUnit = '' }) {
           </g>
         )
       })}
-
-      {/* Series polylines */}
       {series.map(s => (
         <polyline
           key={s.key}
           points={data.map((d, i) => `${cx(i)},${cy(d[s.key] ?? 0)}`).join(' ')}
-          fill="none"
-          stroke={s.color}
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
+          fill="none" stroke={s.color} strokeWidth="2.5"
+          strokeLinejoin="round" strokeLinecap="round"
         />
       ))}
-
-      {/* Data dots */}
       {series.map(s =>
         data.map((d, i) => (
-          <circle
-            key={`${s.key}-${i}`}
-            cx={cx(i)}
-            cy={cy(d[s.key] ?? 0)}
-            r="4"
-            fill="white"
-            stroke={s.color}
-            strokeWidth="2"
-          />
+          <circle key={`${s.key}-${i}`} cx={cx(i)} cy={cy(d[s.key] ?? 0)}
+            r="4" fill="white" stroke={s.color} strokeWidth="2" />
         ))
       )}
-
-      {/* X axis labels */}
       {data.map((d, i) => (
         <text key={i} x={cx(i)} y={H - 6} textAnchor="middle" fontSize="10" fill="#6b7280">
           #{d.issue_no}
@@ -118,14 +110,55 @@ function LineChart({ data, series, yUnit = '' }) {
   )
 }
 
+function FormFields({ form, onChange }) {
+  const field = (key, label, opts = {}) => (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+      <input
+        type={opts.type ?? 'number'}
+        step={opts.step}
+        value={form[key]}
+        onChange={e => onChange(key, e.target.value)}
+        className={`border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm ${opts.wide ? 'w-full' : opts.date ? 'w-36' : 'w-28'}`}
+        placeholder={opts.placeholder ?? ''}
+      />
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      <div>
+        {field('issueDate', '발행일 *', { type: 'date', date: true })}
+      </div>
+      <div>
+        <p className="text-xs font-medium text-blue-600 mb-2">이메일</p>
+        <div className="flex flex-wrap gap-3">
+          {field('emailSent', '발송수', { placeholder: '0' })}
+          {field('emailOpenRate', '오픈율 (%)', { step: '0.1', placeholder: '0.0' })}
+          {field('emailClickRate', '클릭률 (%)', { step: '0.1', placeholder: '0.0' })}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-medium text-yellow-600 mb-2">카카오톡</p>
+        <div className="flex flex-wrap gap-3">
+          {field('kakaoSent', '발송수', { placeholder: '0' })}
+          {field('kakaoView', '조회수', { placeholder: '0' })}
+        </div>
+      </div>
+      {field('kakaoNote', '비고 (선택)', { type: 'text', wide: true, placeholder: '메모를 입력하세요' })}
+    </div>
+  )
+}
+
 export default function NewsletterPerformancePage() {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState('')
-  const [syncInfo, setSyncInfo] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addForm, setAddForm] = useState(EMPTY_FORM)
+  const [addingRecord, setAddingRecord] = useState(false)
   const [editingRow, setEditingRow] = useState(null)
-  const [editForm, setEditForm] = useState({ kakaoSent: '', kakaoView: '', kakaoNote: '' })
+  const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [savingRow, setSavingRow] = useState(null)
   const [activeChart, setActiveChart] = useState('email')
 
@@ -133,84 +166,90 @@ export default function NewsletterPerformancePage() {
 
   async function loadData() {
     setLoading(true)
+    setLoadError('')
     try {
       const data = await dbFetchNewsletterPerformance()
       setRecords(data)
     } catch (e) {
-      setSyncError(e.message)
+      setLoadError(e.message)
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleSync() {
-    setSyncing(true)
-    setSyncError('')
-    setSyncInfo('')
+  function updateAddForm(key, value) {
+    setAddForm(f => ({ ...f, [key]: value }))
+  }
+
+  function updateEditForm(key, value) {
+    setEditForm(f => ({ ...f, [key]: value }))
+  }
+
+  async function handleAddSubmit() {
+    if (!addForm.issueDate) { alert('발행일을 입력해주세요'); return }
+    setAddingRecord(true)
     try {
-      const res = await fetch('/api/stibee-stats')
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `API 오류 ${res.status}`)
-      }
-      const { emails } = await res.json()
-      if (!emails?.length) {
-        setSyncInfo('스티비에서 가져올 이메일이 없습니다.')
-        return
-      }
-
-      // Sort existing records ascending to find max issue_no
-      const existing = [...records].sort((a, b) => a.issue_no - b.issue_no)
-      const maxIssueNo = existing.length ? Math.max(...existing.map(r => r.issue_no)) : 0
-      let nextNo = maxIssueNo + 1
-
-      const upsertRows = []
-      for (const email of emails) {
-        const emailWeek = weekStart(email.sentAt)
-        // Match by same calendar week
-        const match = existing.find(r => r.issue_date && weekStart(r.issue_date) === emailWeek)
-        upsertRows.push({
-          issue_no: match ? match.issue_no : nextNo++,
-          issue_date: email.sentAt.slice(0, 10),
-          email_sent: email.emailSent ?? null,
-          email_open_rate: email.emailOpenRate ?? null,
-          email_click_rate: email.emailClickRate ?? null,
-          synced_at: new Date().toISOString(),
-        })
-      }
-
-      await dbSyncEmailStats(upsertRows)
+      const maxNo = records.length ? Math.max(...records.map(r => r.issue_no)) : 0
+      await dbInsertNewsletterPerformance({
+        issue_no: maxNo + 1,
+        issue_date: addForm.issueDate,
+        email_sent: numOrNull(addForm.emailSent),
+        email_open_rate: numOrNull(addForm.emailOpenRate),
+        email_click_rate: numOrNull(addForm.emailClickRate),
+        kakao_sent: numOrNull(addForm.kakaoSent),
+        kakao_view: numOrNull(addForm.kakaoView),
+        kakao_note: addForm.kakaoNote || null,
+      })
       const fresh = await dbFetchNewsletterPerformance()
       setRecords(fresh)
-      setSyncInfo(`✓ ${emails.length}개 회차 동기화 완료`)
+      setShowAddForm(false)
+      setAddForm(EMPTY_FORM)
     } catch (e) {
-      setSyncError(e.message ?? '동기화 실패')
+      alert('추가 실패: ' + e.message)
     } finally {
-      setSyncing(false)
+      setAddingRecord(false)
     }
   }
 
   function startEdit(record) {
+    setShowAddForm(false)
     setEditingRow(record.issue_no)
     setEditForm({
+      issueDate: record.issue_date ?? '',
+      emailSent: record.email_sent ?? '',
+      emailOpenRate: record.email_open_rate ?? '',
+      emailClickRate: record.email_click_rate ?? '',
       kakaoSent: record.kakao_sent ?? '',
       kakaoView: record.kakao_view ?? '',
       kakaoNote: record.kakao_note ?? '',
     })
   }
 
-  async function handleKakaoSave(issueNo) {
+  async function handleEditSave(issueNo) {
     setSavingRow(issueNo)
     try {
       const payload = {
-        kakaoSent: editForm.kakaoSent !== '' ? Number(editForm.kakaoSent) : null,
-        kakaoView: editForm.kakaoView !== '' ? Number(editForm.kakaoView) : null,
+        issueDate: editForm.issueDate || null,
+        emailSent: numOrNull(editForm.emailSent),
+        emailOpenRate: numOrNull(editForm.emailOpenRate),
+        emailClickRate: numOrNull(editForm.emailClickRate),
+        kakaoSent: numOrNull(editForm.kakaoSent),
+        kakaoView: numOrNull(editForm.kakaoView),
         kakaoNote: editForm.kakaoNote || null,
       }
-      await dbUpdateKakaoStats(issueNo, payload)
+      await dbUpdatePerformanceStats(issueNo, payload)
       setRecords(prev => prev.map(r =>
         r.issue_no === issueNo
-          ? { ...r, kakao_sent: payload.kakaoSent, kakao_view: payload.kakaoView, kakao_note: payload.kakaoNote }
+          ? {
+              ...r,
+              issue_date: payload.issueDate,
+              email_sent: payload.emailSent,
+              email_open_rate: payload.emailOpenRate,
+              email_click_rate: payload.emailClickRate,
+              kakao_sent: payload.kakaoSent,
+              kakao_view: payload.kakaoView,
+              kakao_note: payload.kakaoNote,
+            }
           : r
       ))
       setEditingRow(null)
@@ -221,10 +260,7 @@ export default function NewsletterPerformancePage() {
     }
   }
 
-  // Ascending order for charts
   const chartData = [...records].sort((a, b) => a.issue_no - b.issue_no)
-
-  // Summary stats from latest record (records[0] = highest issue_no)
   const latest = records[0] ?? null
   const recentFour = records.slice(0, 4)
   const avgOpen = avgOf(recentFour.filter(r => r.email_open_rate != null), 'email_open_rate')
@@ -241,42 +277,63 @@ export default function NewsletterPerformancePage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Page header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">뉴스레터 성과분석</h2>
           <p className="text-sm text-gray-500 mt-0.5">이메일 + 카카오톡 채널 메시지 발행 성과</p>
         </div>
         <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          onClick={() => { setShowAddForm(v => !v); setEditingRow(null) }}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          {syncing
-            ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-            : <span className="text-base leading-none">↻</span>
-          }
-          스티비 동기화
+          <span className="text-base leading-none">+</span> 성과 추가하기
         </button>
       </div>
 
-      {syncError && (
+      {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-          {syncError}
+          {loadError}
         </div>
       )}
-      {syncInfo && (
-        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3">
-          {syncInfo}
+
+      {/* Add form */}
+      {showAddForm && (
+        <div className="bg-white rounded-xl border border-blue-200 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800">새 회차 추가</h3>
+            <button
+              onClick={() => { setShowAddForm(false); setAddForm(EMPTY_FORM) }}
+              className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          <FormFields form={addForm} onChange={updateAddForm} />
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={() => { setShowAddForm(false); setAddForm(EMPTY_FORM) }}
+              className="px-4 py-2 text-sm bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleAddSubmit}
+              disabled={addingRecord}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+            >
+              {addingRecord ? '추가 중…' : '저장하기'}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Empty state */}
-      {records.length === 0 && !syncError && (
+      {records.length === 0 && !loadError && (
         <div className="text-center py-16 text-gray-400">
           <p className="text-3xl mb-3">📊</p>
           <p className="text-base text-gray-600 font-medium mb-1">성과 데이터가 없습니다</p>
-          <p className="text-sm">스티비 동기화 버튼을 눌러 이메일 통계를 가져오세요</p>
+          <p className="text-sm">성과 추가하기 버튼으로 첫 번째 회차를 입력해보세요</p>
         </div>
       )}
 
@@ -321,76 +378,101 @@ export default function NewsletterPerformancePage() {
               <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
                 <button
                   onClick={() => setActiveChart('email')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${
-                    activeChart === 'email'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
                   이메일
                 </button>
                 <button
                   onClick={() => setActiveChart('kakao')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${
-                    activeChart === 'kakao'
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'kakao' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
                   카카오톡
+                </button>
+                <button
+                  onClick={() => setActiveChart('all')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'all' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  전체보기
                 </button>
               </div>
             </div>
 
-            {activeChart === 'email' ? (
+            {activeChart === 'email' && (
               <>
                 <div className="flex items-center gap-4 mb-3">
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-blue-500 rounded" />
-                    오픈율
+                    <span className="inline-block w-4 h-0.5 bg-blue-500 rounded" />오픈율
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-indigo-400 rounded" />
-                    클릭률
+                    <span className="inline-block w-4 h-0.5 bg-indigo-400 rounded" />클릭률
                   </span>
                 </div>
                 <LineChart
                   data={chartData}
-                  series={[
-                    { key: 'email_open_rate', color: '#3b82f6' },
-                    { key: 'email_click_rate', color: '#818cf8' },
-                  ]}
+                  series={[{ key: 'email_open_rate', color: '#3b82f6' }, { key: 'email_click_rate', color: '#818cf8' }]}
                   yUnit="%"
                 />
               </>
-            ) : (
+            )}
+
+            {activeChart === 'kakao' && (
               <>
                 <div className="flex items-center gap-4 mb-3">
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-yellow-500 rounded" />
-                    발송수
+                    <span className="inline-block w-4 h-0.5 bg-yellow-500 rounded" />발송수
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-orange-400 rounded" />
-                    조회수
+                    <span className="inline-block w-4 h-0.5 bg-orange-400 rounded" />조회수
                   </span>
                 </div>
                 <LineChart
                   data={chartData}
-                  series={[
-                    { key: 'kakao_sent', color: '#eab308' },
-                    { key: 'kakao_view', color: '#f97316' },
-                  ]}
+                  series={[{ key: 'kakao_sent', color: '#eab308' }, { key: 'kakao_view', color: '#f97316' }]}
                 />
               </>
+            )}
+
+            {activeChart === 'all' && (
+              <div className="space-y-5">
+                <div>
+                  <div className="flex items-center gap-4 mb-2">
+                    <span className="text-xs font-medium text-blue-600">이메일</span>
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="inline-block w-4 h-0.5 bg-blue-500 rounded" />오픈율
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="inline-block w-4 h-0.5 bg-indigo-400 rounded" />클릭률
+                    </span>
+                  </div>
+                  <LineChart
+                    data={chartData}
+                    series={[{ key: 'email_open_rate', color: '#3b82f6' }, { key: 'email_click_rate', color: '#818cf8' }]}
+                    yUnit="%"
+                  />
+                </div>
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center gap-4 mb-2">
+                    <span className="text-xs font-medium text-yellow-600">카카오톡</span>
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="inline-block w-4 h-0.5 bg-yellow-500 rounded" />발송수
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="inline-block w-4 h-0.5 bg-orange-400 rounded" />조회수
+                    </span>
+                  </div>
+                  <LineChart
+                    data={chartData}
+                    series={[{ key: 'kakao_sent', color: '#eab308' }, { key: 'kakao_view', color: '#f97316' }]}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
           {/* Detail table */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700">회차별 상세</h3>
-              <span className="text-xs text-gray-400">카카오톡 항목은 직접 입력</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -409,21 +491,12 @@ export default function NewsletterPerformancePage() {
                 <tbody>
                   {records.map(r => (
                     <Fragment key={r.issue_no}>
-                      {/* Main row */}
-                      <tr className={`border-b border-gray-50 transition-colors ${
-                        editingRow === r.issue_no ? 'bg-blue-50' : 'hover:bg-gray-50'
-                      }`}>
+                      <tr className={`border-b border-gray-50 transition-colors ${editingRow === r.issue_no ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                         <td className="px-4 py-3 font-semibold text-gray-800">#{r.issue_no}</td>
-                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap text-xs">
-                          {fmtDate(r.issue_date)}
-                        </td>
+                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap text-xs">{fmtDate(r.issue_date)}</td>
                         <td className="px-3 py-3 text-right text-gray-700">{fmtNum(r.email_sent)}</td>
-                        <td className="px-3 py-3 text-right font-medium text-blue-600">
-                          {fmtRate(r.email_open_rate)}
-                        </td>
-                        <td className="px-3 py-3 text-right font-medium text-indigo-500">
-                          {fmtRate(r.email_click_rate)}
-                        </td>
+                        <td className="px-3 py-3 text-right font-medium text-blue-600">{fmtRate(r.email_open_rate)}</td>
+                        <td className="px-3 py-3 text-right font-medium text-indigo-500">{fmtRate(r.email_click_rate)}</td>
                         <td className="px-3 py-3 text-right text-yellow-700">{fmtNum(r.kakao_sent)}</td>
                         <td className="px-3 py-3 text-right text-orange-600">{fmtNum(r.kakao_view)}</td>
                         <td className="px-3 py-3 text-right">
@@ -434,66 +507,32 @@ export default function NewsletterPerformancePage() {
                               onClick={() => startEdit(r)}
                               className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
                             >
-                              {r.kakao_sent != null || r.kakao_view != null ? '수정' : '입력'}
+                              수정
                             </button>
                           )}
                         </td>
                       </tr>
 
-                      {/* Inline kakao edit row */}
+                      {/* Inline edit row */}
                       {editingRow === r.issue_no && (
                         <tr>
                           <td colSpan={8} className="px-4 py-4 bg-blue-50 border-b border-blue-100">
-                            <div className="flex flex-wrap gap-3 items-end">
-                              <div>
-                                <label className="block text-xs text-gray-500 mb-1.5">카카오 발송수</label>
-                                <input
-                                  type="number"
-                                  value={editForm.kakaoSent}
-                                  onChange={e => setEditForm(f => ({ ...f, kakaoSent: e.target.value }))}
-                                  className="w-28 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-                                  placeholder="0"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs text-gray-500 mb-1.5">조회수</label>
-                                <input
-                                  type="number"
-                                  value={editForm.kakaoView}
-                                  onChange={e => setEditForm(f => ({ ...f, kakaoView: e.target.value }))}
-                                  className="w-28 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-                                  placeholder="0"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-[120px]">
-                                <label className="block text-xs text-gray-500 mb-1.5">비고 (선택)</label>
-                                <input
-                                  type="text"
-                                  value={editForm.kakaoNote}
-                                  onChange={e => setEditForm(f => ({ ...f, kakaoNote: e.target.value }))}
-                                  className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-                                  placeholder="메모를 입력하세요"
-                                />
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleKakaoSave(r.issue_no)}
-                                  disabled={savingRow === r.issue_no}
-                                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
-                                >
-                                  {savingRow === r.issue_no ? '저장 중…' : '저장'}
-                                </button>
-                                <button
-                                  onClick={() => setEditingRow(null)}
-                                  className="px-3 py-1.5 text-sm bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                  취소
-                                </button>
-                              </div>
+                            <FormFields form={editForm} onChange={updateEditForm} />
+                            <div className="flex justify-end gap-2 mt-4">
+                              <button
+                                onClick={() => setEditingRow(null)}
+                                className="px-3 py-1.5 text-sm bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                              >
+                                취소
+                              </button>
+                              <button
+                                onClick={() => handleEditSave(r.issue_no)}
+                                disabled={savingRow === r.issue_no}
+                                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                              >
+                                {savingRow === r.issue_no ? '저장 중…' : '저장'}
+                              </button>
                             </div>
-                            {r.kakao_note && (
-                              <p className="text-xs text-gray-400 mt-2">현재 비고: {r.kakao_note}</p>
-                            )}
                           </td>
                         </tr>
                       )}
