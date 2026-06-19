@@ -207,8 +207,16 @@ export default function NewsletterPerformancePage() {
         kakao_view: numOrNull(addForm.kakaoView),
         kakao_note: addForm.kakaoNote || null,
       })
+      // 추가 후 발행일 내림차순으로 sort_order 재정렬
       const fresh = await dbFetchNewsletterPerformance()
-      setRecords(fresh)
+      const byDate = [...fresh].sort((a, b) => {
+        if (!a.issue_date) return 1
+        if (!b.issue_date) return -1
+        return new Date(b.issue_date) - new Date(a.issue_date)
+      })
+      await dbUpdateSortOrders(byDate.map((r, i) => ({ id: r.id, sort_order: i })))
+      const final = await dbFetchNewsletterPerformance()
+      setRecords(final)
       setShowAddForm(false)
       setAddForm(EMPTY_FORM)
     } catch (e) {
