@@ -162,7 +162,7 @@ export default function NewsletterPerformancePage() {
   const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [savingRow, setSavingRow] = useState(null)
   const [deletingRow, setDeletingRow] = useState(null)
-  const [activeChart, setActiveChart] = useState('email')
+  const [activeChart, setActiveChart] = useState('all')
 
   useEffect(() => { loadData() }, [])
 
@@ -393,6 +393,12 @@ export default function NewsletterPerformancePage() {
               <h3 className="text-sm font-semibold text-gray-700">회차별 추이</h3>
               <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
                 <button
+                  onClick={() => setActiveChart('all')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'all' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  전체보기
+                </button>
+                <button
                   onClick={() => setActiveChart('email')}
                   className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                 >
@@ -404,12 +410,6 @@ export default function NewsletterPerformancePage() {
                 >
                   카카오톡
                 </button>
-                <button
-                  onClick={() => setActiveChart('all')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${activeChart === 'all' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  전체보기
-                </button>
               </div>
             </div>
 
@@ -417,15 +417,15 @@ export default function NewsletterPerformancePage() {
               <>
                 <div className="flex items-center gap-4 mb-3">
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-blue-500 rounded" />오픈율
+                    <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#2563eb' }} />오픈율
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-indigo-400 rounded" />클릭률
+                    <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#dc2626' }} />클릭률
                   </span>
                 </div>
                 <LineChart
                   data={chartData}
-                  series={[{ key: 'email_open_rate', color: '#3b82f6' }, { key: 'email_click_rate', color: '#818cf8' }]}
+                  series={[{ key: 'email_open_rate', color: '#2563eb' }, { key: 'email_click_rate', color: '#dc2626' }]}
                   yUnit="%"
                 />
               </>
@@ -435,15 +435,15 @@ export default function NewsletterPerformancePage() {
               <>
                 <div className="flex items-center gap-4 mb-3">
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-yellow-500 rounded" />발송수
+                    <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#d97706' }} />발송수
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="inline-block w-4 h-0.5 bg-orange-400 rounded" />조회수
+                    <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#7c3aed' }} />조회수
                   </span>
                 </div>
                 <LineChart
                   data={chartData}
-                  series={[{ key: 'kakao_sent', color: '#eab308' }, { key: 'kakao_view', color: '#f97316' }]}
+                  series={[{ key: 'kakao_sent', color: '#d97706' }, { key: 'kakao_view', color: '#7c3aed' }]}
                 />
               </>
             )}
@@ -452,17 +452,17 @@ export default function NewsletterPerformancePage() {
               <div className="space-y-5">
                 <div>
                   <div className="flex items-center gap-4 mb-2">
-                    <span className="text-xs font-medium text-blue-600">이메일</span>
+                    <span className="text-xs font-medium text-blue-700">이메일</span>
                     <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="inline-block w-4 h-0.5 bg-blue-500 rounded" />오픈율
+                      <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#2563eb' }} />오픈율
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="inline-block w-4 h-0.5 bg-indigo-400 rounded" />클릭률
+                      <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#dc2626' }} />클릭률
                     </span>
                   </div>
                   <LineChart
                     data={chartData}
-                    series={[{ key: 'email_open_rate', color: '#3b82f6' }, { key: 'email_click_rate', color: '#818cf8' }]}
+                    series={[{ key: 'email_open_rate', color: '#2563eb' }, { key: 'email_click_rate', color: '#dc2626' }]}
                     yUnit="%"
                   />
                 </div>
@@ -470,15 +470,15 @@ export default function NewsletterPerformancePage() {
                   <div className="flex items-center gap-4 mb-2">
                     <span className="text-xs font-medium text-yellow-600">카카오톡</span>
                     <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="inline-block w-4 h-0.5 bg-yellow-500 rounded" />발송수
+                      <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#d97706' }} />발송수
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="inline-block w-4 h-0.5 bg-orange-400 rounded" />조회수
+                      <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: '#7c3aed' }} />조회수
                     </span>
                   </div>
                   <LineChart
                     data={chartData}
-                    series={[{ key: 'kakao_sent', color: '#eab308' }, { key: 'kakao_view', color: '#f97316' }]}
+                    series={[{ key: 'kakao_sent', color: '#d97706' }, { key: 'kakao_view', color: '#7c3aed' }]}
                   />
                 </div>
               </div>
